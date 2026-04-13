@@ -10,6 +10,7 @@ const MessageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  isBookmarked: { type: Boolean, default: false },
   inputType: {
     type: String,
     enum: ['text', 'image', 'voice'],

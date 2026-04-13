@@ -52,11 +52,14 @@ export const authAPI = {
 
 // ── CHAT API ────────────────────────────────────────────
 export const chatAPI = {
-  getAll: () => api.get('/chats'),
+  getAll: (subject) => api.get('/chats', { params: subject ? { subject } : {} }),
   getById: (id) => api.get(`/chats/${id}`),
   create: (data = {}) => api.post('/chats', data),
   delete: (id) => api.delete(`/chats/${id}`),
   getStats: () => api.get('/chats/stats'),
+  getBookmarks: () => api.get('/chats/bookmarks'),
+  setBookmark: (chatId, messageId, isBookmarked) =>
+    api.patch(`/chats/${chatId}/messages/${messageId}/bookmark`, { isBookmarked }),
 
   // ── TEXT QUESTION ─────────────────────────────────────
   askText: (chatId, question, subject) => {
@@ -99,3 +102,10 @@ export const chatAPI = {
 };
 
 export default api;
+
+export const quizAPI = {
+  generate: ({ topic, subject, difficulty }) =>
+    api.post('/quiz/generate', { topic, subject, difficulty }, { timeout: 90000 }),
+  grade: ({ topic, subject, questions, answers }) =>
+    api.post('/quiz/grade', { topic, subject, questions, answers }, { timeout: 90000 }),
+};

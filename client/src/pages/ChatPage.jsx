@@ -1,6 +1,7 @@
 import { useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Brain } from 'lucide-react';
+import { ArrowLeft, Brain, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { ChatContext } from '../context/ChatContext';
 import MessageBubble from '../components/Chat/MessageBubble';
 import InputArea from '../components/Chat/InputArea';
@@ -12,6 +13,84 @@ export default function ChatPage() {
   const navigate = useNavigate();
   const { activeChat, loadChat, sendingMessage } = useContext(ChatContext);
   const messagesEndRef = useRef(null);
+
+  const stripMarkdown = (text) => {
+    if (!text) return '';
+    return String(text)
+      .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ''))
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '$1')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .trim();
+  };
+
+  const exportPdf = () => {
+    if (!activeChat) return;
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const maxWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    const safeName = (activeChat.title || 'conversation').replace(/[\\/:*?"<>|]+/g, '-');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(stripMarkdown(activeChat.title || 'Conversation'), margin, y);
+    y += 18;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(`Subject: ${activeChat.subject || 'General'}`, margin, y);
+    y += 14;
+    doc.text(`Exported: ${new Date().toLocaleString()}`, margin, y);
+    y += 18;
+
+    doc.setTextColor(20);
+    doc.setFontSize(11);
+
+    const lineHeight = 14;
+
+    for (const msg of activeChat.messages || []) {
+      const who = msg.role === 'user' ? 'You' : 'AI';
+      const header = `${who}${msg.inputType ? ` (${msg.inputType})` : ''}:`;
+      const body = stripMarkdown(msg.content || '');
+
+      const headerLines = doc.splitTextToSize(header, maxWidth);
+      const bodyLines = doc.splitTextToSize(body, maxWidth);
+
+      const ensureSpace = (needed) => {
+        if (y + needed > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+
+      ensureSpace(lineHeight * (headerLines.length + 1));
+      doc.setFont('helvetica', 'bold');
+      headerLines.forEach((l) => {
+        doc.text(l, margin, y);
+        y += lineHeight;
+      });
+
+      doc.setFont('helvetica', 'normal');
+      ensureSpace(lineHeight * (bodyLines.length + 1));
+      bodyLines.forEach((l) => {
+        doc.text(l, margin, y);
+        y += lineHeight;
+      });
+
+      y += 8;
+    }
+
+    doc.save(`${safeName}.pdf`);
+  };
 
   useEffect(() => {
     if (id) loadChat(id);
@@ -46,6 +125,14 @@ export default function ChatPage() {
           <div className="flex-1 min-w-0">
             <h2 className="font-semibold text-gray-900 text-sm truncate">{activeChat.title}</h2>
           </div>
+          <button
+            onClick={exportPdf}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Export to PDF"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:block">PDF</span>
+          </button>
           <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600">
             {activeChat.subject}
           </span>

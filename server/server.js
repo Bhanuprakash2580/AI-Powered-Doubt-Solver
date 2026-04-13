@@ -10,6 +10,7 @@ const path = require('path');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const quizRoutes = require('./routes/quizRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -36,6 +37,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/quiz', quizRoutes);
 
 app.use(errorHandler);
 

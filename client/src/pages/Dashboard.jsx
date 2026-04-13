@@ -19,12 +19,18 @@ export default function Dashboard() {
   const { chats, loadingChats, loadChats, createChat, deleteChat } = useContext(ChatContext);
   const [stats, setStats] = useState(null);
   const [creatingChat, setCreatingChat] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState('All');
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadChats();
     chatAPI.getStats().then(({ data }) => setStats(data.stats)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadChats(selectedSubject === 'All' ? undefined : selectedSubject);
+  }, [selectedSubject]);
+
+  const SUBJECTS = ['All', 'General', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'English', 'Computer Science', 'Economics', 'Other'];
 
   const handleNewChat = async () => {
     setCreatingChat(true);
@@ -105,6 +111,25 @@ export default function Dashboard() {
             <Clock className="w-5 h-5 text-gray-400" />
             Recent Conversations
           </h2>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {SUBJECTS.map((s) => {
+              const active = selectedSubject === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setSelectedSubject(s)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                    active
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
 
           {loadingChats ? (
             <div className="flex items-center justify-center py-12">

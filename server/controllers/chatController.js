@@ -15,7 +15,12 @@ const { transcribeAudio } = require('../services/speechService');
 // GET ALL CHATS
 // ─────────────────────────────
 const getChats = async (req, res) => {
-  const chats = await Chat.find({ user: req.user._id, isArchived: false })
+  const filter = { user: req.user._id, isArchived: false };
+  if (req.query.subject && req.query.subject !== 'All') {
+    filter.subject = req.query.subject;
+  }
+
+  const chats = await Chat.find(filter)
     .select('title subject lastActivity createdAt updatedAt messages')
     .sort({ lastActivity: -1 });
 
@@ -30,7 +35,7 @@ const getChats = async (req, res) => {
     lastMessage: chat.messages.length ? chat.messages[chat.messages.length - 1].content : '',
   }));
 
-  res.json(chatSummaries);
+  res.json({ chats: chatSummaries });
 };
 
 // ─────────────────────────────
@@ -39,7 +44,7 @@ const getChats = async (req, res) => {
 const getChatById = async (req, res) => {
   const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id });
   if (!chat) return res.status(404).json({ success: false, message: 'Chat not found' });
-  res.json(chat);
+  res.json({ chat });
 };
 
 // ─────────────────────────────
@@ -49,9 +54,10 @@ const createChat = async (req, res) => {
   const chat = await Chat.create({
     user: req.user._id,
     title: req.body.title || 'New Chat',
+    subject: req.body.subject || 'General',
   });
 
-  res.status(201).json(chat);
+  res.status(201).json({ chat });
 };
 
 // ─────────────────────────────
@@ -82,7 +88,10 @@ const askTextDoubt = async (req, res) => {
   await chat.save();
   await User.findByIdAndUpdate(req.user._id, { $inc: { totalDoubts: 1 } });
 
-  res.json({ success: true, messages: chat.messages.slice(-2) });
+  const userMessage = chat.messages[chat.messages.length - 2];
+  const assistantMessage = chat.messages[chat.messages.length - 1];
+
+  res.json({ userMessage, assistantMessage, subject: chat.subject });
 };
 
 // ─────────────────────────────
@@ -124,7 +133,10 @@ const askImageDoubt = async (req, res) => {
     await chat.save();
     await User.findByIdAndUpdate(req.user._id, { $inc: { totalDoubts: 1 } });
 
-    res.json({ success: true, messages: chat.messages.slice(-2) });
+    const userMessage = chat.messages[chat.messages.length - 2];
+    const assistantMessage = chat.messages[chat.messages.length - 1];
+
+    res.json({ userMessage, assistantMessage, subject: chat.subject });
   } catch (err) {
     try {
       fs.unlinkSync(imagePath);
@@ -172,7 +184,64 @@ const askVoiceDoubt = async (req, res) => {
   await chat.save();
   await User.findByIdAndUpdate(req.user._id, { $inc: { totalDoubts: 1 } });
 
-  res.json({ success: true, messages: chat.messages.slice(-2) });
+  const userMessage = chat.messages[chat.messages.length - 2];
+  const assistantMessage = chat.messages[chat.messages.length - 1];
+
+  res.json({ userMessage, assistantMessage, transcript, subject: chat.subject });
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BOOKMARK MESSAGE
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const setMessageBookmark = async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const { isBookmarked } = req.body || {};
+
+  const chat = await Chat.findOne({ _id: chatId, user: req.user._id });
+  if (!chat) return res.status(404).json({ success: false, message: 'Chat not found' });
+
+  const msg = chat.messages.id(messageId);
+  if (!msg) return res.status(404).json({ success: false, message: 'Message not found' });
+  if (msg.role !== 'assistant') {
+    return res.status(400).json({ success: false, message: 'Only AI answers can be bookmarked' });
+  }
+
+  if (typeof isBookmarked === 'boolean') msg.isBookmarked = isBookmarked;
+  else msg.isBookmarked = !msg.isBookmarked;
+
+  await chat.save();
+  res.json({ message: msg });
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// GET BOOKMARKS
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const getBookmarks = async (req, res) => {
+  const chats = await Chat.find({
+    user: req.user._id,
+    'messages.isBookmarked': true,
+  }).select('title subject messages createdAt updatedAt');
+
+  const bookmarks = [];
+  for (const chat of chats) {
+    for (const msg of chat.messages) {
+      if (!msg.isBookmarked || msg.role !== 'assistant') continue;
+      bookmarks.push({
+        chatId: chat._id,
+        chatTitle: chat.title,
+        chatSubject: chat.subject,
+        messageId: msg._id,
+        role: msg.role,
+        content: msg.content,
+        inputType: msg.inputType,
+        timestamp: msg.timestamp,
+      });
+    }
+  }
+
+  bookmarks.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+  res.json({ bookmarks });
 };
 
 // ─────────────────────────────
@@ -188,8 +257,25 @@ const deleteChat = async (req, res) => {
 // STATS
 // ─────────────────────────────
 const getStats = async (req, res) => {
-  const totalChats = await Chat.countDocuments({ user: req.user._id });
-  res.json({ totalChats, totalDoubts: req.user.totalDoubts || 0 });
+  const totalChats = await Chat.countDocuments({ user: req.user._id, isArchived: false });
+
+  const breakdown = await Chat.aggregate([
+    { $match: { user: req.user._id, isArchived: false } },
+    { $group: { _id: '$subject', count: { $sum: 1 } } },
+  ]);
+
+  const subjectBreakdown = breakdown.reduce((acc, row) => {
+    acc[row._id || 'General'] = row.count;
+    return acc;
+  }, {});
+
+  res.json({
+    stats: {
+      totalChats,
+      totalDoubts: req.user.totalDoubts || 0,
+      subjectBreakdown,
+    },
+  });
 };
 
 module.exports = {
@@ -199,7 +285,8 @@ module.exports = {
   askTextDoubt,
   askImageDoubt,
   askVoiceDoubt,
+  setMessageBookmark,
+  getBookmarks,
   deleteChat,
   getStats,
 };
-

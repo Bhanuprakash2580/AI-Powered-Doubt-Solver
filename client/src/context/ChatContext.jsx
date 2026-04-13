@@ -10,10 +10,10 @@ export const ChatProvider = ({ children }) => {
   const [loadingChats, setLoadingChats] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
 
-  const loadChats = async () => {
+  const loadChats = async (subject) => {
     setLoadingChats(true);
     try {
-      const { data } = await chatAPI.getAll();
+      const { data } = await chatAPI.getAll(subject);
       setChats(data.chats);
     } catch {
       toast.error('Failed to load conversations');
@@ -187,11 +187,33 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  const setBookmark = async (messageId, isBookmarked) => {
+    if (!activeChat) return null;
+
+    try {
+      const { data } = await chatAPI.setBookmark(activeChat._id, messageId, isBookmarked);
+
+      setActiveChat(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => (m._id === messageId ? { ...m, isBookmarked: data.message.isBookmarked } : m)),
+        };
+      });
+
+      return data.message;
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update bookmark');
+      return null;
+    }
+  };
+
   return (
     <ChatContext.Provider value={{
       chats, activeChat, loadingChats, sendingMessage,
       loadChats, loadChat, createChat, deleteChat,
       sendTextMessage, sendImageMessage, sendVoiceMessage,
+      setBookmark,
       setActiveChat,
     }}>
       {children}

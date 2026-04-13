@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Brain, LogOut, User, LayoutDashboard } from 'lucide-react';
+import { Brain, LogOut, User, LayoutDashboard, Bookmark, GraduationCap } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useState, useContext } from 'react';
 
@@ -28,6 +28,18 @@ export default function Navbar() {
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
             <LayoutDashboard className="w-4 h-4" />
             <span className="hidden sm:block">Dashboard</span>
+          </Link>
+
+          <Link to="/bookmarks"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+            <Bookmark className="w-4 h-4" />
+            <span className="hidden sm:block">Bookmarks</span>
+          </Link>
+
+          <Link to="/quiz"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+            <GraduationCap className="w-4 h-4" />
+            <span className="hidden sm:block">Quiz</span>
           </Link>
 
           <div className="relative">

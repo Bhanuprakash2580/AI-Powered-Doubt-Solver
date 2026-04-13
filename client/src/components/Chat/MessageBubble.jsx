@@ -1,10 +1,11 @@
-import { Brain, User, Image, Mic, FileText, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { Brain, User, Image, Mic, FileText, Copy, Check, Bookmark } from 'lucide-react';
+import { useState, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import toast from 'react-hot-toast';
+import { ChatContext } from '../../context/ChatContext';
 
 const InputTypeBadge = ({ type }) => {
   const badges = {
@@ -46,6 +47,7 @@ const MarkdownRenderer = ({ content }) => (
 export default function MessageBubble({ message }) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
+  const { setBookmark } = useContext(ChatContext);
 
   const copyContent = () => {
     navigator.clipboard.writeText(message.content);
@@ -94,10 +96,19 @@ export default function MessageBubble({ message }) {
       </div>
       <div className="flex-1 max-w-[90%]">
         <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-gray-100 relative group">
-          <button onClick={copyContent}
-            className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+            <button
+              onClick={() => message._id && setBookmark(message._id, !message.isBookmarked)}
+              className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${message.isBookmarked ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
+              title={message.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+            >
+              <Bookmark className="w-3.5 h-3.5" fill={message.isBookmarked ? 'currentColor' : 'none'} />
+            </button>
+            <button onClick={copyContent}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          </div>
           <MarkdownRenderer content={message.content} />
         </div>
         <span className="text-xs text-gray-400 px-1 mt-1">{timestamp}</span>

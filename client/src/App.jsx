@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
 import Landing from './pages/Landing';
+import BookmarksPage from './pages/BookmarksPage';
+import QuizPage from './pages/QuizPage';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 const PrivateRoute = ({ children }) => {
@@ -29,6 +31,8 @@ const AppRoutes = () => (
     <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
     <Route path="/dashboard" element={<PrivateRoute><ChatProvider><Dashboard /></ChatProvider></PrivateRoute>} />
     <Route path="/chat/:id" element={<PrivateRoute><ChatProvider><ChatPage /></ChatProvider></PrivateRoute>} />
+    <Route path="/bookmarks" element={<PrivateRoute><BookmarksPage /></PrivateRoute>} />
+    <Route path="/quiz" element={<PrivateRoute><QuizPage /></PrivateRoute>} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );

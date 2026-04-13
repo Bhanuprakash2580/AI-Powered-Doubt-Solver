@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getChats, getChatById, createChat,
   askTextDoubt, askImageDoubt, askVoiceDoubt,
+  setMessageBookmark, getBookmarks,
   deleteChat, getStats,
 } = require('../controllers/chatController');
 const { protect } = require('../middleware/auth');
@@ -11,10 +12,12 @@ const { handleImageUpload, handleAudioUpload } = require('../middleware/chatUplo
 router.use(protect);
 
 router.get('/stats', getStats);
+router.get('/bookmarks', getBookmarks);
 router.get('/', getChats);
 router.post('/', createChat);
 router.get('/:id', getChatById);
 router.delete('/:id', deleteChat);
+router.patch('/:chatId/messages/:messageId/bookmark', setMessageBookmark);
 
 router.post('/:id/text', askTextDoubt);
 router.post('/:id/image', handleImageUpload, askImageDoubt);
