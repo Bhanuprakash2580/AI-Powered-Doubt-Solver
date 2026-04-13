@@ -4,6 +4,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import postcss from 'postcss';
+import tailwind from '@tailwindcss/postcss';
+import autoprefixer from 'autoprefixer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,8 +16,23 @@ const API_TARGET = process.env.API_TARGET || 'http://localhost:5001';
 
 const distDir = path.join(__dirname, 'dist');
 const indexHtmlPath = path.join(__dirname, 'index.html');
+const cssInPath = path.join(__dirname, 'src', 'index.css');
+const cssOutPath = path.join(distDir, 'styles.css');
 
 if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+
+const buildCss = async () => {
+  const css = fs.readFileSync(cssInPath, 'utf8');
+  const result = await postcss([tailwind(), autoprefixer]).process(css, {
+    from: cssInPath,
+    to: cssOutPath,
+    map: { inline: false },
+  });
+
+  fs.writeFileSync(cssOutPath, result.css);
+  if (result.map) fs.writeFileSync(`${cssOutPath}.map`, result.map.toString());
+  console.log('[css] built');
+};
 
 const getContentType = (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
@@ -105,12 +123,28 @@ const esbuildArgs = [
   '--format=esm',
   '--sourcemap',
   '--outfile=dist/bundle.js',
-  '--conditions=style',
   '--jsx=automatic',
   '--loader:.js=jsx',
   '--loader:.jsx=jsx',
   '--watch=forever',
 ];
+
+await buildCss();
+
+let cssTimer = null;
+const scheduleCssBuild = () => {
+  if (cssTimer) clearTimeout(cssTimer);
+  cssTimer = setTimeout(() => {
+    buildCss().catch((err) => console.error('[css] build failed:', err?.message || err));
+  }, 150);
+};
+
+try {
+  fs.watch(path.join(__dirname, 'src'), { recursive: true }, () => scheduleCssBuild());
+  fs.watch(indexHtmlPath, () => scheduleCssBuild());
+} catch (err) {
+  console.warn('[css] watch not available:', err?.message || err);
+}
 
 const esbuildProc = spawn(esbuildExe, esbuildArgs, { stdio: 'inherit', shell: false });
 
@@ -139,6 +173,14 @@ process.on('SIGTERM', () => {
 
 process.on('exit', () => {
   cleanup();
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Set a different PORT and restart.`);
+    process.exit(1);
+  }
+  throw err;
 });
 
 server.listen(PORT, () => {
